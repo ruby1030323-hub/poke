@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PokeDex 語音圖覽器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 屬性顏色對應表 */
+        .type-fire { background-color: #F08030; }
+        .type-water { background-color: #6890F0; }
+        .type-grass { background-color: #78C850; }
+        .type-electric { background-color: #F8D030; }
+        .type-psychic { background-color: #F85888; }
+        .type-ice { background-color: #98D8D8; }
+        .type-dragon { background-color: #7038F8; }
+        .type-dark { background-color: #705848; }
+        .type-poison { background-color: #A040A0; }
+        .type-fairy { background-color: #EE99AC; }
+        .type-bug { background-color: #A8B820; }
+        .type-default { background-color: #A8A878; }
+    </style>
+</head>
+<body class="bg-gray-900 min-h-screen font-sans text-gray-100 flex items-center justify-center p-4">
+
+    <div class="max-w-md w-full">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-black text-yellow-400 tracking-widest mb-4">POKÉDEX</h1>
+            <div class="relative">
+                <input type="text" id="pokeInput" placeholder="輸入名稱或編號..." 
+                    class="w-full p-4 rounded-2xl bg-gray-800 border-2 border-gray-700 focus:border-yellow-400 focus:ring-0 outline-none transition-all text-white pr-16">
+                <button onclick="searchPokemon()" 
+                    class="absolute right-2 top-2 bottom-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold px-4 rounded-xl transition-transform active:scale-95">
+                    Go!
+                </button>
+            </div>
+        </div>
+
+        <div id="pokeCard" class="hidden bg-gray-800 rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-700 transform transition-all">
+            <div id="typeBg" class="relative p-12 flex justify-center items-center transition-colors duration-500">
+                <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle,_#fff_10%,_transparent_10%)] bg-[length:20px_20px]"></div>
+                <img id="pokeImg" src="" alt="pokemon" class="w-56 h-56 z-10 drop-shadow-[0_20px_30px_rgba(0,0,0,0.5)]">
+            </div>
+
+            <div class="p-8 bg-gray-800">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <p id="pokeId" class="text-yellow-400 font-mono font-bold text-lg leading-none mb-1">#000</p>
+                        <h2 id="pokeName" class="text-3xl font-black capitalize tracking-tight">Pokemon</h2>
+                    </div>
+                    <div id="pokeTypes" class="flex flex-col gap-1 items-end">
+                        </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 mb-6">
+                    <div class="bg-gray-700/50 p-3 rounded-2xl text-center border border-gray-600">
+                        <span class="block text-[10px] text-gray-400 uppercase font-bold">HP</span>
+                        <span id="stat-hp" class="text-xl font-black">--</span>
+                    </div>
+                    <div class="bg-gray-700/50 p-3 rounded-2xl text-center border border-gray-600">
+                        <span class="block text-[10px] text-gray-400 uppercase font-bold">ATK</span>
+                        <span id="stat-atk" class="text-xl font-black">--</span>
+                    </div>
+                    <div class="bg-gray-700/50 p-3 rounded-2xl text-center border border-gray-600">
+                        <span class="block text-[10px] text-gray-400 uppercase font-bold">DEF</span>
+                        <span id="stat-def" class="text-xl font-black">--</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-center gap-2 text-gray-500 text-xs">
+                    <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                    TTS 語音導覽已就緒
+                </div>
+            </div>
+        </div>
+
+        <p id="errorMsg" class="hidden text-center text-red-400 mt-4 font-medium animate-bounce">
+            捕捉失敗！請檢查名稱是否正確。
+        </p>
+    </div>
+
+    <script>
+        const typeMap = {
+            grass: '草', fire: '火', water: '水', bug: '蟲', normal: '一般',
+            poison: '毒', electric: '電', ground: '地面', fairy: '妖精',
+            fighting: '格鬥', psychic: '超能力', rock: '岩石', ghost: '幽靈',
+            ice: '冰', dragon: '龍', dark: '惡', steel: '鋼', flying: '飛行'
+        };
+
+        const typeColors = {
+            fire: 'type-fire', water: 'type-water', grass: 'type-grass',
+            electric: 'type-electric', psychic: 'type-psychic', ice: 'type-ice',
+            dragon: 'type-dragon', dark: 'type-dark', poison: 'type-poison',
+            fairy: 'type-fairy', bug: 'type-bug'
+        };
+
+        function speak(name, types) {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            
+            const chineseTypes = types.map(t => typeMap[t] || t).join('跟');
+            const text = `發現寶可夢：${name}。屬性是：${chineseTypes}屬性。`;
+            
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = 'zh-TW';
+            utter.rate = 1;
+            utter.pitch = 1.1;
+            window.speechSynthesis.speak(utter);
+        }
+
+        async function searchPokemon() {
+            const input = document.getElementById('pokeInput').value.toLowerCase().trim();
+            const card = document.getElementById('pokeCard');
+            const error = document.getElementById('errorMsg');
+
+            if (!input) return;
+
+            try {
+                const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${input}`);
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+
+                // 更新文字與圖片
+                document.getElementById('pokeName').innerText = data.name;
+                document.getElementById('pokeId').innerText = `#${data.id.toString().padStart(3, '0')}`;
+                document.getElementById('pokeImg').src = data.sprites.other['official-artwork'].front_default;
+
+                // 更新能力值
+                document.getElementById('stat-hp').innerText = data.stats[0].base_stat;
+                document.getElementById('stat-atk').innerText = data.stats[1].base_stat;
+                document.getElementById('stat-def').innerText = data.stats[2].base_stat;
+
+                // 處理屬性標籤與背景色
+                const typeContainer = document.getElementById('pokeTypes');
+                typeContainer.innerHTML = '';
+                const types = data.types.map(t => t.type.name);
+                
+                const bgClass = typeColors[types[0]] || 'type-default';
+                document.getElementById('typeBg').className = `relative p-12 flex justify-center items-center transition-colors duration-500 ${bgClass}`;
+
+                types.forEach(t => {
+                    const span = document.createElement('span');
+                    span.className = `px-3 py-0.5 rounded-full text-[10px] font-bold uppercase text-white shadow-lg ${typeColors[t] || 'type-default'}`;
+                    span.innerText = t;
+                    typeContainer.appendChild(span);
+                });
+
+                // 顯示結果並發聲
+                card.classList.remove('hidden');
+                error.classList.add('hidden');
+                speak(data.name, types);
+
+            } catch (err) {
+                card.classList.add('hidden');
+                error.classList.remove('hidden');
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        // Enter 鍵觸發
+        document.getElementById('pokeInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchPokemon();
+        });
+    </script>
+</body>
+</html>
